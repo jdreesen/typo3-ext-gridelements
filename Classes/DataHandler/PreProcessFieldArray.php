@@ -32,10 +32,6 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 class PreProcessFieldArray extends AbstractDataHandler {
 
-	protected $definitionValues;
-
-	protected $overrideValues;
-
 	/**
 	 * Function to set the colPos of an element depending on
 	 * whether it is a child of a parent container or not
@@ -66,14 +62,18 @@ class PreProcessFieldArray extends AbstractDataHandler {
 	 */
 	public function processFieldArrayForTtContent(array &$fieldArray) {
 		$pid = 0;
+
 		if ($this->getTable() === 'tt_content') {
 			$pid = (int)GeneralUtility::_GET('DDinsertNew');
 
 			if (abs($pid) > 0) {
 				$this->setDefaultFieldValues($fieldArray, $pid);
 				$this->getDefaultFlexformValues($fieldArray);
+			} else {
+				$this->copyDefaults($fieldArray);
 			}
 		}
+
 		$this->setFieldEntries($fieldArray, $pid);
 	}
 
@@ -119,19 +119,7 @@ class PreProcessFieldArray extends AbstractDataHandler {
 			}
 		}
 
-		// Default values as submitted:
-		$this->definitionValues = GeneralUtility::_GP('defVals');
-		$this->overrideValues = GeneralUtility::_GP('overrideVals');
-		if (!is_array($this->definitionValues) && is_array($this->overrideValues)) {
-			$this->definitionValues = $this->overrideValues;
-		}
-		if (is_array($this->definitionValues['tt_content'])) {
-			foreach ($this->definitionValues['tt_content'] as $theF => $theV) {
-				if (isset($GLOBALS['TCA']['tt_content']['columns'][$theF])) {
-					$newRow[$theF] = $theV;
-				}
-			}
-		}
+		$this->copyDefaults($newRow);
 
 		// Fetch default values if a previous record exists
 		if ($pid < 0 && $GLOBALS['TCA']['tt_content']['ctrl']['useColumnsForDefaultValues']) {
@@ -152,6 +140,24 @@ class PreProcessFieldArray extends AbstractDataHandler {
 			}
 		}
 		$fieldArray = array_merge($newRow, $fieldArray);
+	}
+
+	protected function copyDefaults(array &$row) {
+		// Default values as submitted:
+		$defaults = GeneralUtility::_GP('defVals');
+		$overrides = GeneralUtility::_GP('overrideVals');
+
+		if (!is_array($defaults) && is_array($overrides)) {
+			$defaults = $overrides;
+		}
+
+		if (isset($defaults['tt_content']) && is_array($defaults['tt_content'])) {
+			foreach ($defaults['tt_content'] as $column => $value) {
+				if (isset($GLOBALS['TCA']['tt_content']['columns'][$column])) {
+					$row[$column] = $value;
+				}
+			}
+		}
 	}
 
 	/**
